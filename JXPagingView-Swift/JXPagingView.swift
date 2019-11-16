@@ -102,6 +102,11 @@ open class JXPagingView: UIView {
     public var validListDict = [Int:JXPagingViewListViewDelegate]()
     /// 顶部固定sectionHeader的垂直偏移量。数值越大越往下沉。
     open var pinSectionHeaderVerticalOffset: Int = 0
+    open var isLockHeaderView:Bool = false {
+        didSet {
+            self.mainTableView.setContentOffset(.zero, animated: false)
+        }
+    }
     public var isListHorizontalScrollEnabled = true {
         didSet {
             refreshListHorizontalScrollEnabledState()
@@ -204,6 +209,10 @@ open class JXPagingView: UIView {
         self.mainTableView.reloadData()
         self.listContainerView.reloadData()
     }
+    
+    open func hotReloadData() {
+        
+    }
 
     open func resizeTableHeaderViewHeight(animatable: Bool = false, duration: TimeInterval = 0.25, curve: UIView.AnimationCurve = .linear) {
         if animatable {
@@ -224,6 +233,10 @@ open class JXPagingView: UIView {
     }
 
     open func preferredProcessListViewDidScroll(scrollView: UIScrollView) {
+        if isLockHeaderView {
+            return
+        }
+        
         if (self.mainTableView.contentOffset.y < mainTableViewMaxContentOffsetY()) {
             //mainTableView的header还没有消失，让listScrollView一直为0
             self.currentList?.listScrollViewWillResetContentOffset?()
@@ -241,6 +254,11 @@ open class JXPagingView: UIView {
     }
 
     open func preferredProcessMainTableViewDidScroll(_ scrollView: UIScrollView) {
+        if isLockHeaderView {
+            scrollView.setContentOffset(.zero, animated: false)
+            return
+        }
+        
         if (self.currentScrollingListView != nil && self.currentScrollingListView!.contentOffset.y > minContentOffsetYInListScrollView(currentScrollingListView!)) {
             //mainTableView的header已经滚动不见，开始滚动某一个listView，那么固定mainTableView的contentOffset，让其不动
             setMainTableViewToMaxContentOffsetY()
@@ -377,15 +395,15 @@ open class JXPagingView: UIView {
 
 //MARK: - UITableViewDataSource, UITableViewDelegate
 extension JXPagingView: UITableViewDataSource, UITableViewDelegate {
-    public func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
+    open func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
         return 1
     }
 
-    public func tableView(_ tableView: UITableView, heightForRowAt indexPath: IndexPath) -> CGFloat {
+    open func tableView(_ tableView: UITableView, heightForRowAt indexPath: IndexPath) -> CGFloat {
         return max(self.bounds.height - pinSectionHeaderHeight() - CGFloat(pinSectionHeaderVerticalOffset), 0)
     }
 
-    public func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
+    open func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
         let cell = tableView.dequeueReusableCell(withIdentifier: "cell", for: indexPath)
         cell.selectionStyle = .none
         for subview in cell.contentView.subviews {
@@ -396,11 +414,11 @@ extension JXPagingView: UITableViewDataSource, UITableViewDelegate {
         return cell
     }
 
-    public func tableView(_ tableView: UITableView, heightForHeaderInSection section: Int) -> CGFloat {
+    open func tableView(_ tableView: UITableView, heightForHeaderInSection section: Int) -> CGFloat {
         return pinSectionHeaderHeight()
     }
 
-    public func tableView(_ tableView: UITableView, viewForHeaderInSection section: Int) -> UIView? {
+    open func tableView(_ tableView: UITableView, viewForHeaderInSection section: Int) -> UIView? {
         guard self.delegate != nil else {
             return UIView()
         }
@@ -408,17 +426,17 @@ extension JXPagingView: UITableViewDataSource, UITableViewDelegate {
     }
 
     //加上footer之后，下滑滚动就变得丝般顺滑了
-    public func tableView(_ tableView: UITableView, heightForFooterInSection section: Int) -> CGFloat {
+    open func tableView(_ tableView: UITableView, heightForFooterInSection section: Int) -> CGFloat {
         return 1
     }
 
-    public func tableView(_ tableView: UITableView, viewForFooterInSection section: Int) -> UIView? {
+    open func tableView(_ tableView: UITableView, viewForFooterInSection section: Int) -> UIView? {
         let footerView = UIView(frame: CGRect.zero)
         footerView.backgroundColor = UIColor.clear
         return footerView
     }
 
-    public func scrollViewDidScroll(_ scrollView: UIScrollView) {
+    open func scrollViewDidScroll(_ scrollView: UIScrollView) {
         if CGFloat(pinSectionHeaderVerticalOffset) != 0 {
             if scrollView.contentOffset.y < CGFloat(pinSectionHeaderVerticalOffset) {
                 if scrollView.contentOffset.y >= mainTableViewMaxContentOffsetY() {
@@ -442,20 +460,20 @@ extension JXPagingView: UITableViewDataSource, UITableViewDelegate {
         self.delegate?.mainTableViewDidScroll?(scrollView)
     }
 
-    public func scrollViewWillBeginDragging(_ scrollView: UIScrollView) {
+    open func scrollViewWillBeginDragging(_ scrollView: UIScrollView) {
         if isListHorizontalScrollEnabled {
             //用户正在上下滚动的时候，就不允许左右滚动
             self.listContainerView.collectionView.isScrollEnabled = false
         }
     }
 
-    public func scrollViewDidEndDragging(_ scrollView: UIScrollView, willDecelerate decelerate: Bool) {
+    open func scrollViewDidEndDragging(_ scrollView: UIScrollView, willDecelerate decelerate: Bool) {
         if isListHorizontalScrollEnabled && !decelerate {
             self.listContainerView.collectionView.isScrollEnabled = true
         }
     }
 
-    public func scrollViewDidEndDecelerating(_ scrollView: UIScrollView) {
+    open func scrollViewDidEndDecelerating(_ scrollView: UIScrollView) {
         if isListHorizontalScrollEnabled {
             self.listContainerView.collectionView.isScrollEnabled = true
         }
@@ -464,7 +482,7 @@ extension JXPagingView: UITableViewDataSource, UITableViewDelegate {
         }
     }
 
-    public func scrollViewDidEndScrollingAnimation(_ scrollView: UIScrollView) {
+    open func scrollViewDidEndScrollingAnimation(_ scrollView: UIScrollView) {
         if isListHorizontalScrollEnabled {
             self.listContainerView.collectionView.isScrollEnabled = true
         }
@@ -472,14 +490,14 @@ extension JXPagingView: UITableViewDataSource, UITableViewDelegate {
 }
 
 extension JXPagingView: JXPagingListContainerViewDelegate {
-    public func numberOfRows(in listContainerView: JXPagingListContainerView) -> Int {
+    open func numberOfRows(in listContainerView: JXPagingListContainerView) -> Int {
         guard self.delegate != nil else {
             return 0
         }
         return self.delegate!.numberOfLists(in: self)
     }
 
-    public func listContainerView(_ listContainerView: JXPagingListContainerView, viewForListInRow row: Int) -> UIView {
+    open func listContainerView(_ listContainerView: JXPagingListContainerView, viewForListInRow row: Int) -> UIView {
         guard self.delegate != nil else {
             return UIView()
         }
@@ -502,12 +520,12 @@ extension JXPagingView: JXPagingListContainerViewDelegate {
         return list!.listView()
     }
 
-    public func listContainerView(_ listContainerView: JXPagingListContainerView, willDisplayCellAt row: Int) {
+    open func listContainerView(_ listContainerView: JXPagingListContainerView, willDisplayCellAt row: Int) {
         self.listDidAppear(index: row)
         self.currentScrollingListView = validListDict[row]?.listScrollView()
     }
 
-    public func listContainerView(_ listContainerView: JXPagingListContainerView, didEndDisplayingCellAt row: Int) {
+    open func listContainerView(_ listContainerView: JXPagingListContainerView, didEndDisplayingCellAt row: Int) {
         self.listDidDisappear(index: row)
     }
 }
